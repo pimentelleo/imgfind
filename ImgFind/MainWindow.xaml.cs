@@ -285,10 +285,19 @@ public partial class MainWindow : Window
             }
         };
         timer.Start();
+        var progressShownAt = Stopwatch.StartNew();
         try
         {
+            await Dispatcher.Yield(DispatcherPriority.Render);
             var plan = await Task.Run(() => ImageOperations.Prepare(paths, destination, progress => Volatile.Write(ref latest, progress)));
             timer.Stop();
+            ScanProgressTitle.Text = "Conferência concluída";
+            ScanProgressDetails.Text = $"100% da conferência · {plan.Sources.Count} arquivos · {plan.Duplicates.Count} grupos de duplicatas";
+            ScanCurrentFolder.Text = "Pronto para escolher como tratar as duplicatas.";
+            DeterminateProgress.Value = 100;
+            DeterminateProgress.Visibility = Visibility.Visible;
+            IndeterminateProgress.Visibility = Visibility.Collapsed;
+            await Task.Delay(Math.Max(0, 800 - (int)progressShownAt.ElapsedMilliseconds));
             ScanProgressPanel.Visibility = Visibility.Collapsed;
             bool excludeDuplicates = false;
             if (plan.Duplicates.Count > 0)

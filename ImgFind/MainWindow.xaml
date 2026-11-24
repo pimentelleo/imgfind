@@ -1,7 +1,7 @@
 <Window x:Class="ImgFind.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="ImgFind" Height="800" Width="1200" MinHeight="680" MinWidth="940"
+        Title="ImgFind 1.1 — Organizador de imagens" Height="800" Width="1200" MinHeight="680" MinWidth="940"
         WindowStartupLocation="CenterScreen" Closing="Window_Closing">
     <Grid>
         <Grid.RowDefinitions>
@@ -19,7 +19,7 @@
                     </Border>
                     <TextBlock Text="imgfind" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     <Border Width="1" Height="23" Background="{StaticResource Line}" Margin="20,0"/>
-                    <TextBlock Text="Organizador de imagens" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                    <TextBlock Text="Organizador de imagens · 1.1" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
                 </StackPanel>
                 <Border HorizontalAlignment="Right" VerticalAlignment="Center" Background="#F0F9F5" CornerRadius="14" Padding="10,5">
                     <StackPanel Orientation="Horizontal">
