@@ -20,7 +20,7 @@ O executável estará em `ImgFind\bin\Release\net8.0-windows\win-x64\publish\Img
 
 ## Como usar
 
-1. Escolha a pasta de origem e clique em **Varrer imagens**. A busca inclui subpastas. Links e pontos de junção são ignorados para evitar ciclos e acesso inesperado.
+1. Escolha a pasta de origem e clique em **Varrer imagens**. A busca inclui subpastas e mostra a pasta atual, contagens e tempo decorrido. Como o total de arquivos é desconhecido antes de percorrer as pastas, a barra é indeterminada, sem porcentagem ou estimativa inventada. Links e pontos de junção são ignorados para evitar ciclos e acesso inesperado.
 2. Clique em uma linha para visualizar a imagem; marque as caixas para escolher quais mover. A visualização depende dos codecs instalados no Windows. A busca reconhece JPG, JPEG, PNG, GIF, BMP, TIFF, WebP e ICO pela extensão; arquivos inválidos ou sem codec podem aparecer na lista, mas não ser exibidos.
 3. Escolha uma pasta de destino existente e clique em **Mover selecionadas** ou **Mover todas**.
 4. Antes de mover, o aplicativo compara o conteúdo por SHA-256 e lista grupos de duplicatas entre os arquivos escolhidos e arquivos já presentes diretamente no destino. Escolha mover todas as cópias, deixar duplicatas fora da operação ou cancelar. Ao deixar duplicatas de fora, uma cópia selecionada é movida por grupo; se já houver cópia no destino, nenhuma cópia desse grupo é movida. Arquivos deixados de fora permanecem na origem, sem exclusão.

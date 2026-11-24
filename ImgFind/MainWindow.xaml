@@ -33,7 +33,7 @@
         <Grid Grid.Row="1" Margin="28,22,28,20">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <Grid Margin="0,0,0,18">
@@ -110,7 +110,27 @@
                 </Grid>
             </Border>
 
-            <Grid Grid.Row="2" MinHeight="0">
+            <Border x:Name="ScanProgressPanel" Grid.Row="2" Visibility="Collapsed" Background="#F0EEFF"
+                    BorderBrush="#DDD9FF" BorderThickness="1" CornerRadius="10" Padding="16,11" Margin="0,0,0,16">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid>
+                        <TextBlock x:Name="ScanProgressTitle" Text="Varrendo pastas..." FontWeight="Bold" Foreground="#4437C5"/>
+                        <TextBlock x:Name="ScanElapsed" Text="Tempo: 00:00" HorizontalAlignment="Right" Foreground="#64728B" FontSize="11"/>
+                    </Grid>
+                    <TextBlock x:Name="ScanProgressDetails" Grid.Row="1" Margin="0,5,0,0" Foreground="#4D45A2" FontSize="12"
+                               Text="0 pastas iniciadas · 0 arquivos examinados · 0 imagens encontradas · 0 erros"/>
+                    <Grid Grid.Row="2" Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="180"/></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="ScanCurrentFolder" Text="Preparando..." Foreground="#64728B" FontSize="11"
+                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                        <ProgressBar Grid.Column="1" IsIndeterminate="True" Height="5" Margin="12,0,0,0"
+                                     Foreground="{StaticResource Accent}" Background="#DDD9FF"
+                                     AutomationProperties.Name="Varredura em andamento; total desconhecido"/>
+                    </Grid>
+                </Grid>
+            </Border>
+            <Grid Grid.Row="3" MinHeight="0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="3*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="2*"/>
                 </Grid.ColumnDefinitions>
@@ -212,7 +232,7 @@
                     </Grid>
                 </Border>
             </Grid>
-            <Grid Grid.Row="3" Margin="0,16,0,0">
+            <Grid Grid.Row="4" Margin="0,16,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock x:Name="StatusLabel" Text="PRONTO PARA ORGANIZAR" FontSize="10" FontWeight="Bold" Foreground="#8390A5"/>

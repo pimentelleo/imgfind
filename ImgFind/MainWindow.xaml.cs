@@ -1,11 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using Microsoft.Win32;
 
 namespace ImgFind;
@@ -117,14 +119,45 @@ public partial class MainWindow : Window
         }
         var root = SourcePath.Text;
         SetBusy(true, "Varrendo pastas...");
+        ScanProgressPanel.Visibility = Visibility.Visible;
+        ScanProgressTitle.Text = "Varrendo pastas...";
+        ScanProgressDetails.Text = "0 pastas iniciadas · 0 arquivos examinados · 0 imagens encontradas · 0 erros";
+        ScanCurrentFolder.Text = root;
+        ScanElapsed.Text = "Tempo: 00:00";
+        if (Images.Count == 0)
+        {
+            EmptyTitle.Text = "Procurando imagens...";
+            EmptyDescription.Text = "Aguarde enquanto examinamos a pasta e suas subpastas.";
+        }
+        var clock = Stopwatch.StartNew();
+        ScanProgress? latest = null;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+        timer.Tick += (_, _) =>
+        {
+            var elapsed = clock.Elapsed;
+            ScanElapsed.Text = $"Tempo: {(int)elapsed.TotalMinutes:00}:{elapsed.Seconds:00}";
+            var progress = Volatile.Read(ref latest);
+            if (progress == null) return;
+            ScanCurrentFolder.Text = progress.CurrentDirectory;
+            ScanProgressDetails.Text = $"{progress.DirectoriesVisited} pastas iniciadas · {progress.FilesExamined} arquivos examinados · " +
+                                       $"{progress.ImagesFound} imagens encontradas · {progress.Errors} erros";
+        };
+        timer.Start();
         try
         {
-            var result = await Task.Run(() => ImageOperations.Scan(root));
+            var result = await Task.Run(() => ImageOperations.Scan(root, progress => Volatile.Write(ref latest, progress)));
+            timer.Stop();
+            ScanProgressTitle.Text = "Preparando a lista de imagens...";
+            ScanProgressDetails.Text = $"{result.Images.Count} imagens encontradas · {result.Errors.Count} erros";
             scanCompleted = true;
             ClearImages();
             ScheduleSummaryUpdate();
-            foreach (var path in result.Images)
-                Images.Add(new ImageItem { Path = path });
+            for (var i = 0; i < result.Images.Count; i++)
+            {
+                Images.Add(new ImageItem { Path = result.Images[i] });
+                if ((i + 1) % 200 == 0)
+                    await Dispatcher.Yield(DispatcherPriority.Background);
+            }
             ClearPreview();
             Status.Text = Images.Count == 1 ? "1 imagem encontrada." : $"{Images.Count} imagens encontradas.";
             if (result.Errors.Count > 0)
@@ -135,7 +168,13 @@ public partial class MainWindow : Window
             Status.Text = "Não foi possível concluir a varredura.";
             ShowNotice("Erro na varredura", ex.Message, error: true);
         }
-        finally { SetBusy(false); }
+        finally
+        {
+            timer.Stop();
+            ScanProgressPanel.Visibility = Visibility.Collapsed;
+            ScheduleSummaryUpdate();
+            SetBusy(false);
+        }
     }
 
     private void ImageList_SelectionChanged(object sender, SelectionChangedEventArgs e)

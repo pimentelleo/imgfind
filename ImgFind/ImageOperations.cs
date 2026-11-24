@@ -1,9 +1,12 @@
 using System.IO;
+using System.Diagnostics;
 using System.Security.Cryptography;
 
 namespace ImgFind;
 
 public sealed record ScanResult(IReadOnlyList<string> Images, IReadOnlyList<string> Errors);
+public sealed record ScanProgress(string CurrentDirectory, int DirectoriesVisited, long FilesExamined,
+    int ImagesFound, int Errors);
 public sealed record FileFingerprint(string Path, long Size, string Hash);
 public sealed record DuplicateGroup(IReadOnlyList<string> Sources, IReadOnlyList<string> ExistingFiles);
 public sealed record MovePlan(string Destination, IReadOnlyList<FileFingerprint> Sources,
@@ -21,7 +24,7 @@ public static class ImageOperations
 
     private static readonly StringComparer PathComparer = StringComparer.OrdinalIgnoreCase;
 
-    public static ScanResult Scan(string root)
+    public static ScanResult Scan(string root, Action<ScanProgress>? reportProgress = null)
     {
         root = Path.GetFullPath(root);
         if (!Directory.Exists(root))
@@ -30,9 +33,19 @@ public static class ImageOperations
         var images = new List<string>();
         var errors = new List<string>();
         var pending = new Stack<string>();
+        var directoriesVisited = 0;
+        long filesExamined = 0;
+        var progressClock = Stopwatch.StartNew();
+        void Report(string directory)
+        {
+            reportProgress?.Invoke(new ScanProgress(directory, directoriesVisited, filesExamined, images.Count, errors.Count));
+            progressClock.Restart();
+        }
         pending.Push(root);
         while (pending.TryPop(out var directory))
         {
+            directoriesVisited++;
+            Report(directory);
             try
             {
                 foreach (var entry in Directory.EnumerateFileSystemEntries(directory))
@@ -44,19 +57,26 @@ public static class ImageOperations
                             continue;
                         if ((attributes & FileAttributes.Directory) != 0)
                             pending.Push(entry);
-                        else if (Extensions.Contains(Path.GetExtension(entry)))
-                            images.Add(Path.GetFullPath(entry));
+                        else
+                        {
+                            filesExamined++;
+                            if (Extensions.Contains(Path.GetExtension(entry)))
+                                images.Add(Path.GetFullPath(entry));
+                        }
                     }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                     {
                         errors.Add($"{entry}: {ex.Message}");
                     }
+                    if (progressClock.ElapsedMilliseconds >= 150)
+                        Report(directory);
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 errors.Add($"{directory}: {ex.Message}");
             }
+            Report(directory);
         }
         images.Sort(PathComparer);
         return new ScanResult(images, errors);

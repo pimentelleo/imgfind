@@ -37,8 +37,15 @@ void TestScan()
     var image = Path.Combine(source, "nested", "photo.JPG");
     File.WriteAllText(image, "image");
     File.WriteAllText(Path.Combine(source, "ignore.txt"), "not an image");
-    var result = ImageOperations.Scan(source);
+    var updates = new List<ScanProgress>();
+    var result = ImageOperations.Scan(source, updates.Add);
     Check(result.Errors.Count == 0 && result.Images.SequenceEqual(new[] { image }), "A varredura recursiva falhou.");
+    Check(updates.Count >= 2 && updates[0].CurrentDirectory == source && updates[0].ImagesFound == 0,
+        "Progresso inicial não informado.");
+    var last = updates[^1];
+    Check(last.CurrentDirectory == Path.Combine(source, "nested") && last.DirectoriesVisited == 2 &&
+          last.FilesExamined == 2 && last.ImagesFound == 1 && last.Errors == result.Errors.Count,
+          "Contagens finais da varredura incorretas.");
 }
 
 void TestExcludeDuplicates()
