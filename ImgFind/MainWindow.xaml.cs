@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -13,6 +14,10 @@ public sealed class ImageItem : INotifyPropertyChanged
 {
     private bool isChecked;
     public required string Path { get; init; }
+    public string FileName => System.IO.Path.GetFileName(Path);
+    public string Directory => System.IO.Path.GetDirectoryName(Path) ?? "";
+    public string Extension => System.IO.Path.GetExtension(Path).TrimStart('.').ToUpperInvariant();
+    public override string ToString() => FileName;
     public bool IsChecked
     {
         get => isChecked;
@@ -27,11 +32,59 @@ public partial class MainWindow : Window
 {
     public ObservableCollection<ImageItem> Images { get; } = new();
     private bool busy;
+    private bool summaryUpdatePending;
+    private bool scanCompleted;
 
     public MainWindow()
     {
         InitializeComponent();
         DataContext = this;
+        Images.CollectionChanged += Images_CollectionChanged;
+    }
+
+    private void Images_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.NewItems != null)
+            foreach (ImageItem item in e.NewItems) item.PropertyChanged += ImageItem_PropertyChanged;
+        if (e.OldItems != null)
+            foreach (ImageItem item in e.OldItems) item.PropertyChanged -= ImageItem_PropertyChanged;
+        ScheduleSummaryUpdate();
+    }
+
+    private void ImageItem_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ImageItem.IsChecked)) ScheduleSummaryUpdate();
+    }
+
+    private void ScheduleSummaryUpdate()
+    {
+        if (summaryUpdatePending) return;
+        summaryUpdatePending = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            summaryUpdatePending = false;
+            ImageCount.Text = $"{Images.Count} {(Images.Count == 1 ? "imagem" : "imagens")} na biblioteca";
+            var selected = Images.Count(x => x.IsChecked);
+            SelectionCount.Text = $"{selected} {(selected == 1 ? "selecionada" : "selecionadas")}";
+            EmptyState.Visibility = Images.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            EmptyTitle.Text = scanCompleted ? "Nenhuma imagem encontrada" : "Sua biblioteca começa aqui";
+            EmptyDescription.Text = scanCompleted ? "Tente outra pasta ou confira os formatos suportados." :
+                "Escolha uma pasta de origem e inicie a varredura.";
+        });
+    }
+
+    private void ClearImages()
+    {
+        foreach (var item in Images) item.PropertyChanged -= ImageItem_PropertyChanged;
+        Images.Clear();
+    }
+
+    private void ClearPreview()
+    {
+        Preview.Source = null;
+        PreviewPlaceholder.Visibility = Visibility.Visible;
+        PreviewName.Text = "Nenhuma imagem selecionada";
+        PreviewText.Text = "Clique em um arquivo para visualizar.";
     }
 
     private void BrowseSource_Click(object sender, RoutedEventArgs e)
@@ -40,9 +93,10 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog(this) == true)
         {
             SourcePath.Text = dialog.FolderName;
-            Images.Clear();
-            Preview.Source = null;
-            PreviewText.Text = "Selecione um arquivo para visualizar.";
+            scanCompleted = false;
+            ClearImages();
+            ScheduleSummaryUpdate();
+            ClearPreview();
             Status.Text = "Clique em Varrer imagens para carregar a pasta.";
         }
     }
@@ -58,7 +112,7 @@ public partial class MainWindow : Window
     {
         if (string.IsNullOrWhiteSpace(SourcePath.Text))
         {
-            MessageBox.Show(this, "Escolha uma pasta de origem.", "ImgFind", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowNotice("Escolha uma pasta de origem", "Para começar, escolha a pasta que deseja varrer.");
             return;
         }
         var root = SourcePath.Text;
@@ -66,19 +120,20 @@ public partial class MainWindow : Window
         try
         {
             var result = await Task.Run(() => ImageOperations.Scan(root));
-            Images.Clear();
+            scanCompleted = true;
+            ClearImages();
+            ScheduleSummaryUpdate();
             foreach (var path in result.Images)
                 Images.Add(new ImageItem { Path = path });
-            Preview.Source = null;
-            PreviewText.Text = "Selecione um arquivo para visualizar.";
-            Status.Text = $"{Images.Count} imagem(ns) encontrada(s).";
+            ClearPreview();
+            Status.Text = Images.Count == 1 ? "1 imagem encontrada." : $"{Images.Count} imagens encontradas.";
             if (result.Errors.Count > 0)
                 ShowReport("A varredura terminou com erros", "Algumas pastas ou arquivos não puderam ser lidos:", result.Errors);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
         {
             Status.Text = "Não foi possível concluir a varredura.";
-            MessageBox.Show(this, ex.Message, "Erro na varredura", MessageBoxButton.OK, MessageBoxImage.Error);
+            ShowNotice("Erro na varredura", ex.Message, error: true);
         }
         finally { SetBusy(false); }
     }
@@ -88,9 +143,12 @@ public partial class MainWindow : Window
         Preview.Source = null;
         if (ImageList.SelectedItem is not ImageItem item)
         {
-            PreviewText.Text = "Selecione um arquivo para visualizar.";
+            ClearPreview();
             return;
         }
+        PreviewName.Text = item.FileName;
+        PreviewText.Text = item.Path;
+        PreviewPlaceholder.Visibility = Visibility.Collapsed;
         try
         {
             var image = new BitmapImage();
@@ -101,7 +159,6 @@ public partial class MainWindow : Window
             image.EndInit();
             image.Freeze();
             Preview.Source = image;
-            PreviewText.Text = item.Path;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
                                    or NotSupportedException or FileFormatException or ArgumentException)
@@ -131,13 +188,12 @@ public partial class MainWindow : Window
         if (busy) return;
         if (paths.Length == 0)
         {
-            MessageBox.Show(this, "Não há imagens para mover. Varra a origem e selecione imagens, se necessário.",
-                "ImgFind", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowNotice("Nenhuma imagem para mover", "Varra a pasta de origem e selecione imagens, se necessário.");
             return;
         }
         if (string.IsNullOrWhiteSpace(DestinationPath.Text))
         {
-            MessageBox.Show(this, "Escolha uma pasta de destino.", "ImgFind", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowNotice("Escolha uma pasta de destino", "Escolha onde deseja reunir as imagens antes de continuar.");
             return;
         }
         var destination = DestinationPath.Text;
@@ -156,8 +212,9 @@ public partial class MainWindow : Window
                 }
                 excludeDuplicates = dialog.ExcludeDuplicates;
             }
-            else if (MessageBox.Show(this, $"Mover {paths.Length} imagem(ns) para:\n{destination}?",
-                         "Confirmar movimentação", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            else if (!ShowNotice("Tudo pronto para mover",
+                         $"Nenhuma duplicata foi encontrada. Mover {paths.Length} {(paths.Length == 1 ? "imagem" : "imagens")} para:\n\n{destination}?",
+                         confirm: true))
             {
                 Status.Text = "Movimentação cancelada; nenhum arquivo foi movido.";
                 return;
@@ -178,7 +235,7 @@ public partial class MainWindow : Window
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             Status.Text = "A conferência falhou; nenhum arquivo foi movido.";
-            MessageBox.Show(this, $"{Status.Text}\n\n{ex.Message}", "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+            ShowNotice("Não foi possível continuar", $"{Status.Text}\n\n{ex.Message}", error: true);
         }
         finally { SetBusy(false); }
     }
@@ -186,6 +243,7 @@ public partial class MainWindow : Window
     private void SetBusy(bool value, string? message = null)
     {
         busy = value;
+        StatusLabel.Text = value ? "OPERAÇÃO EM ANDAMENTO" : "PRONTO PARA ORGANIZAR";
         BrowseSource.IsEnabled = BrowseDestination.IsEnabled = ScanButton.IsEnabled =
             SelectAllButton.IsEnabled = ClearButton.IsEnabled = MoveSelectedButton.IsEnabled =
             MoveAllButton.IsEnabled = ImageList.IsEnabled = !value;
@@ -196,8 +254,13 @@ public partial class MainWindow : Window
     {
         if (!busy) return;
         e.Cancel = true;
-        MessageBox.Show(this, "Aguarde a operação terminar antes de fechar o aplicativo.",
-            "Operação em andamento", MessageBoxButton.OK, MessageBoxImage.Information);
+        ShowNotice("Operação em andamento", "Aguarde a operação terminar antes de fechar o aplicativo.");
+    }
+
+    private bool ShowNotice(string title, string message, bool confirm = false, bool error = false)
+    {
+        var dialog = new NoticeWindow(title, message, confirm, error) { Owner = this };
+        return dialog.ShowDialog() == true;
     }
 
     private void ShowReport(string title, string summary, IEnumerable<string> lines)

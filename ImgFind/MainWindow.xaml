@@ -1,68 +1,228 @@
 <Window x:Class="ImgFind.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="ImgFind — localizar e organizar imagens" Height="720" Width="1100"
-        MinHeight="560" MinWidth="800" WindowStartupLocation="CenterScreen" Closing="Window_Closing">
-    <Grid Margin="16">
+        Title="ImgFind" Height="800" Width="1200" MinHeight="680" MinWidth="940"
+        WindowStartupLocation="CenterScreen" Closing="Window_Closing">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="64"/><RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        <StackPanel>
-            <TextBlock Text="ImgFind" FontSize="26" FontWeight="SemiBold"/>
-            <TextBlock Text="Encontre imagens em uma pasta e em suas subpastas." Margin="0,2,0,12"/>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="Origem:" VerticalAlignment="Center" Width="70"/>
-                <TextBox x:Name="SourcePath" Grid.Column="1" IsReadOnly="True" Padding="6" VerticalContentAlignment="Center"/>
-                <Button x:Name="BrowseSource" Grid.Column="2" Content="Escolher pasta..." Margin="8,0,0,0" Padding="12,6" Click="BrowseSource_Click"/>
+
+        <Border Background="White" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1">
+            <Grid Margin="28,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                    <Border Background="{StaticResource Accent}" CornerRadius="9" Width="34" Height="34">
+                        <Canvas Width="22" Height="22">
+                            <Path Data="M 3,16 L 8,10 L 12,14 L 15,11 L 19,16 Z" Fill="White" Opacity="0.95"/>
+                            <Ellipse Width="4" Height="4" Fill="White" Canvas.Left="13" Canvas.Top="5"/>
+                        </Canvas>
+                    </Border>
+                    <TextBlock Text="imgfind" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    <Border Width="1" Height="23" Background="{StaticResource Line}" Margin="20,0"/>
+                    <TextBlock Text="Organizador de imagens" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                </StackPanel>
+                <Border HorizontalAlignment="Right" VerticalAlignment="Center" Background="#F0F9F5" CornerRadius="14" Padding="10,5">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="6" Height="6" Fill="#22A56D" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock Text="Seus arquivos, sob seu controle" FontSize="11" Foreground="#258460" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
             </Grid>
-            <Grid Margin="0,8,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="Destino:" VerticalAlignment="Center" Width="70"/>
-                <TextBox x:Name="DestinationPath" Grid.Column="1" IsReadOnly="True" Padding="6" VerticalContentAlignment="Center"/>
-                <Button x:Name="BrowseDestination" Grid.Column="2" Content="Escolher pasta..." Margin="8,0,0,0" Padding="12,6" Click="BrowseDestination_Click"/>
+        </Border>
+
+        <Grid Grid.Row="1" Margin="28,22,28,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Grid Margin="0,0,0,18">
+                <StackPanel>
+                    <TextBlock Text="Sua biblioteca de imagens" FontSize="26" FontWeight="Bold"/>
+                    <TextBlock Text="Encontre, revise e organize suas imagens em um só lugar." Foreground="{StaticResource Muted}" Margin="0,5,0,0"/>
+                </StackPanel>
+                <TextBlock Text="01  ESCOLHA AS PASTAS     /     02  REVISE     /     03  ORGANIZE"
+                           FontSize="10" FontWeight="SemiBold" Foreground="#8994A6"
+                           HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,2"/>
             </Grid>
-        </StackPanel>
-        <DockPanel Grid.Row="1" Margin="0,14,0,8">
-            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
-                <Button x:Name="SelectAllButton" Content="Selecionar todas" Padding="10,5" Click="SelectAll_Click"/>
-                <Button x:Name="ClearButton" Content="Limpar seleção" Margin="6,0,0,0" Padding="10,5" Click="ClearSelection_Click"/>
-            </StackPanel>
-            <Button x:Name="ScanButton" Content="Varrer imagens" Padding="12,5" HorizontalAlignment="Left" Click="Scan_Click"/>
-        </DockPanel>
-        <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
-            <ListBox x:Name="ImageList" ItemsSource="{Binding Images}" SelectionChanged="ImageList_SelectionChanged"
-                     HorizontalContentAlignment="Stretch">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <DockPanel Margin="3">
-                            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,8,0"
-                                      ToolTip="Incluir na movimentação"/>
-                            <TextBlock Text="{Binding Path}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
-                        </DockPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-            <Border Grid.Column="2" BorderBrush="#CCCCCC" BorderThickness="1" Padding="10">
+
+            <Border Grid.Row="1" Style="{StaticResource Card}" Padding="18" Margin="0,0,0,16">
                 <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <Image x:Name="Preview" Stretch="Uniform"/>
-                    <TextBlock x:Name="PreviewText" Grid.Row="1" Text="Selecione um arquivo para visualizar." TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/><ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="*"/><ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="42"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Width="38" Height="38" Background="#F0EEFF" CornerRadius="10" VerticalAlignment="Center">
+                            <Path Data="M 3,5 L 9,5 L 11,7 L 19,7 L 19,16 L 3,16 Z" Stroke="{StaticResource Accent}" StrokeThickness="1.5"
+                                  StrokeLineJoin="Round" Width="19" Height="13" Stretch="Uniform"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="8,0,12,0" VerticalAlignment="Center">
+                            <TextBlock Text="PASTA DE ORIGEM" FontSize="10" FontWeight="Bold" Foreground="#8390A5"/>
+                            <Grid Margin="0,5,0,0">
+                                <TextBlock x:Name="SourcePath" TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                           FontWeight="SemiBold" Foreground="{StaticResource Ink}"/>
+                                <TextBlock Text="Nenhuma pasta escolhida" Foreground="{StaticResource Muted}" IsHitTestVisible="False">
+                                    <TextBlock.Style><Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=SourcePath}" Value="">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger></Style.Triggers>
+                                    </Style></TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </StackPanel>
+                        <Button x:Name="BrowseSource" Grid.Column="2" Content="Escolher" Click="BrowseSource_Click"/>
+                    </Grid>
+                    <Grid Grid.Column="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="42"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Width="38" Height="38" Background="#EAF7F4" CornerRadius="10" VerticalAlignment="Center">
+                            <Path Data="M 3,5 L 9,5 L 11,7 L 19,7 L 19,16 L 3,16 Z" Stroke="#168D78" StrokeThickness="1.5"
+                                  StrokeLineJoin="Round" Width="19" Height="13" Stretch="Uniform"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="8,0,12,0" VerticalAlignment="Center">
+                            <TextBlock Text="PASTA DE DESTINO" FontSize="10" FontWeight="Bold" Foreground="#8390A5"/>
+                            <Grid Margin="0,5,0,0">
+                                <TextBlock x:Name="DestinationPath" TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"
+                                           FontWeight="SemiBold" Foreground="{StaticResource Ink}"/>
+                                <TextBlock Text="Nenhuma pasta escolhida" Foreground="{StaticResource Muted}" IsHitTestVisible="False">
+                                    <TextBlock.Style><Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=DestinationPath}" Value="">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger></Style.Triggers>
+                                    </Style></TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </StackPanel>
+                        <Button x:Name="BrowseDestination" Grid.Column="2" Content="Escolher" Click="BrowseDestination_Click"/>
+                    </Grid>
+                    <Button x:Name="ScanButton" Grid.Column="4" Style="{StaticResource PrimaryButton}"
+                            Content="Varrer imagens  →" Click="Scan_Click"/>
                 </Grid>
             </Border>
+
+            <Grid Grid.Row="2" MinHeight="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="3*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="2*"/>
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource Card}">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <Grid Margin="20,17,20,14">
+                            <StackPanel>
+                                <TextBlock Text="Imagens encontradas" FontSize="16" FontWeight="Bold"/>
+                                <TextBlock x:Name="ImageCount" Text="0 imagens na biblioteca" Foreground="{StaticResource Muted}" Margin="0,3,0,0" FontSize="12"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button x:Name="SelectAllButton" Style="{StaticResource QuietButton}" Content="Selecionar todas" Click="SelectAll_Click"/>
+                                <Button x:Name="ClearButton" Style="{StaticResource QuietButton}" Content="Limpar" Click="ClearSelection_Click" Margin="4,0,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid Grid.Row="1" Margin="8,0">
+                            <ListBox x:Name="ImageList" ItemsSource="{Binding Images}" SelectionChanged="ImageList_SelectionChanged"
+                                     HorizontalContentAlignment="Stretch" BorderThickness="0" Background="Transparent"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="Margin" Value="0,2"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value><ControlTemplate TargetType="ListBoxItem">
+                                                <Border x:Name="Row" Background="Transparent" CornerRadius="8" Padding="12,9">
+                                                    <ContentPresenter/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Row" Property="Background" Value="#F5F6FC"/></Trigger>
+                                                    <Trigger Property="IsSelected" Value="True"><Setter TargetName="Row" Property="Background" Value="#EFEDFF"/></Trigger>
+                                                    <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Row" Property="BorderBrush" Value="#8074EF"/><Setter TargetName="Row" Property="BorderThickness" Value="1"/></Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate></Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="44"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <CheckBox IsChecked="{Binding IsChecked, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,12,0"
+                                                      ToolTip="Selecionar para mover" AutomationProperties.Name="{Binding FileName}"/>
+                                            <Border Grid.Column="1" Background="#EEEFFC" CornerRadius="8" Width="36" Height="36" HorizontalAlignment="Left">
+                                                <TextBlock Text="{Binding Extension}" Foreground="{StaticResource Accent}" FontWeight="Bold"
+                                                           FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
+                                                <TextBlock Text="{Binding Directory}" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,2,0,0"
+                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                                <Border Background="#F0EEFF" Width="58" Height="58" CornerRadius="18" HorizontalAlignment="Center">
+                                    <Path Data="M 3,19 L 10,11 L 15,16 L 19,12 L 25,19 Z M 17,6 A 2,2 0 1 1 17,10 A 2,2 0 1 1 17,6" Fill="#7569E7"
+                                          Width="29" Height="23" Stretch="Uniform"/>
+                                </Border>
+                                <TextBlock x:Name="EmptyTitle" Text="Sua biblioteca começa aqui" FontWeight="SemiBold" FontSize="15" HorizontalAlignment="Center" Margin="0,14,0,0"/>
+                                <TextBlock x:Name="EmptyDescription" Text="Escolha uma pasta de origem e inicie a varredura." Foreground="{StaticResource Muted}" Margin="0,5,0,0" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                        <Border Grid.Row="2" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="20,12">
+                            <TextBlock x:Name="SelectionCount" Text="0 selecionadas" Foreground="{StaticResource Muted}" FontSize="12"/>
+                        </Border>
+                    </Grid>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource Card}">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <StackPanel Margin="20,17,20,14">
+                            <TextBlock Text="Visualização" FontSize="16" FontWeight="Bold"/>
+                            <TextBlock Text="Confira antes de organizar" Foreground="{StaticResource Muted}" Margin="0,3,0,0" FontSize="12"/>
+                        </StackPanel>
+                        <Border Grid.Row="1" Background="#F5F6FA" CornerRadius="10" Margin="16,0,16,0" ClipToBounds="True">
+                            <Grid>
+                                <Image x:Name="Preview" Stretch="Uniform" Margin="12"/>
+                                <StackPanel x:Name="PreviewPlaceholder" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                                    <Border Background="White" Width="52" Height="52" CornerRadius="16" HorizontalAlignment="Center">
+                                        <Path Data="M 3,19 L 10,11 L 15,16 L 19,12 L 25,19 Z M 17,6 A 2,2 0 1 1 17,10 A 2,2 0 1 1 17,6" Fill="#A9B2C4"
+                                              Width="27" Height="22" Stretch="Uniform"/>
+                                    </Border>
+                                    <TextBlock Text="Selecione uma imagem" FontWeight="SemiBold" Foreground="#66748A" Margin="0,12,0,0" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="A prévia aparecerá aqui" Foreground="#929DB0" FontSize="12" Margin="0,4,0,0" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Row="2" Margin="20,14,20,17">
+                            <TextBlock x:Name="PreviewName" Text="Nenhuma imagem selecionada" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="PreviewText" Text="Clique em um arquivo para visualizar." Foreground="{StaticResource Muted}" FontSize="11"
+                                       Margin="0,4,0,0" TextWrapping="Wrap" MaxHeight="48" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+            <Grid Grid.Row="3" Margin="0,16,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock x:Name="StatusLabel" Text="PRONTO PARA ORGANIZAR" FontSize="10" FontWeight="Bold" Foreground="#8390A5"/>
+                    <TextBlock x:Name="Status" Text="Escolha uma pasta de origem para começar." Foreground="{StaticResource Muted}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button x:Name="MoveAllButton" Content="Mover todas" Click="MoveAll_Click" Margin="0,0,8,0"/>
+                    <Button x:Name="MoveSelectedButton" Style="{StaticResource PrimaryButton}" Content="Mover selecionadas  →" Click="MoveSelected_Click"/>
+                </StackPanel>
+            </Grid>
         </Grid>
-        <DockPanel Grid.Row="3" Margin="0,12,0,0">
-            <Button x:Name="MoveAllButton" DockPanel.Dock="Right" Content="Mover todas" Padding="12,8" Margin="8,0,0,0" Click="MoveAll_Click"/>
-            <Button x:Name="MoveSelectedButton" DockPanel.Dock="Right" Content="Mover selecionadas" Padding="12,8" Margin="8,0,0,0" Click="MoveSelected_Click"/>
-            <TextBlock x:Name="Status" VerticalAlignment="Center" TextWrapping="Wrap" Text="Escolha uma pasta de origem."/>
-        </DockPanel>
     </Grid>
 </Window>
