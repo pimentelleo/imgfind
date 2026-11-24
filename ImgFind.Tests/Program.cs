@@ -12,6 +12,9 @@ try
     TestDestinationOverlapsSource();
     TestBlockedTypeFolder();
     TestDestinationRemoved();
+    TestVideos();
+    TestVideoDestinationDuplicates();
+    TestLargeVideo();
     TestPrepareProgress();
     TestPrepareProgressWithinFile();
     TestChangedOrMissingSource();
@@ -20,6 +23,68 @@ try
 finally
 {
     Directory.Delete(root, true);
+}
+
+void TestVideos()
+{
+    var (source, destination) = CreateCase("videos");
+    Directory.CreateDirectory(Path.Combine(source, "nested"));
+    var photo = Path.Combine(source, "photo.jpg");
+    var video = Path.Combine(source, "nested", "clip.MP4");
+    var other = Path.Combine(source, "movie.mkv");
+    var ignored = Path.Combine(source, "audio.mp3");
+    File.WriteAllText(photo, "photo");
+    File.WriteAllText(video, "video");
+    File.WriteAllText(other, "movie");
+    File.WriteAllText(ignored, "audio");
+    var scan = ImageOperations.Scan(source);
+    Check(scan.Images.Count == 3 && scan.Images.Contains(photo) && scan.Images.Contains(video) &&
+          scan.Images.Contains(other) && !scan.Images.Contains(ignored) &&
+          ImageOperations.IsVideo(video) && ImageOperations.IsVideo(other) && !ImageOperations.IsVideo(photo),
+          "A varredura deve localizar fotos e vídeos em subpastas, sem incluir áudio.");
+    var result = ImageOperations.Move(ImageOperations.Prepare(scan.Images, destination), false);
+    Check(result.Errors.Count == 0 && result.Moved.Count == 3 &&
+          File.ReadAllText(Path.Combine(destination, "JPG", "photo.jpg")) == "photo" &&
+          File.ReadAllText(Path.Combine(destination, "MP4", "clip.MP4")) == "video" &&
+          File.ReadAllText(Path.Combine(destination, "MKV", "movie.mkv")) == "movie",
+          "Fotos e vídeos devem ser movidos para pastas por extensão.");
+}
+
+void TestVideoDestinationDuplicates()
+{
+    var (source, destination) = CreateCase("video-duplicates");
+    var clip = Path.Combine(source, "clip.mp4");
+    var different = Path.Combine(source, "different.mp4");
+    File.WriteAllText(clip, "same content");
+    File.WriteAllText(different, "different video");
+    Directory.CreateDirectory(Path.Combine(destination, "MOV"));
+    Directory.CreateDirectory(Path.Combine(destination, "MP4"));
+    var existing = Path.Combine(destination, "MOV", "original.mov");
+    File.WriteAllText(existing, "same content");
+    var clash = Path.Combine(destination, "MP4", "different.mp4");
+    File.WriteAllText(clash, "already here");
+    var plan = ImageOperations.Prepare(new[] { clip, different }, destination);
+    Check(plan.Duplicates.Count == 1 && plan.Duplicates[0].ExistingFiles.Contains(existing),
+          "Vídeos iguais com extensões distintas devem ser identificados.");
+    var result = ImageOperations.Move(plan, true);
+    Check(result.Errors.Count == 0 && result.Skipped.Contains(clip) && File.Exists(clip) &&
+          File.ReadAllText(existing) == "same content" && File.ReadAllText(clash) == "already here" &&
+          File.ReadAllText(Path.Combine(destination, "MP4", "different (1).mp4")) == "different video",
+          "Duplicatas e conflitos de nome em vídeos devem preservar os arquivos.");
+}
+
+void TestLargeVideo()
+{
+    var (source, destination) = CreateCase("video-large");
+    var video = Path.Combine(source, "large.mov");
+    using (var stream = File.Create(video))
+        stream.SetLength(32L * 1024 * 1024);
+    var plan = ImageOperations.Prepare(new[] { video }, destination);
+    Check(plan.Sources.Single().Size == 32L * 1024 * 1024, "Tamanho do vídeo não foi conferido corretamente.");
+    var result = ImageOperations.Move(plan, false);
+    Check(result.Errors.Count == 0 && result.Moved.Count == 1 &&
+          new FileInfo(Path.Combine(destination, "MOV", "large.mov")).Length == 32L * 1024 * 1024,
+          "Vídeo grande não foi movido corretamente.");
 }
 
 void TestPrepareProgressWithinFile()

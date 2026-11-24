@@ -20,10 +20,20 @@ public sealed record MoveResult(IReadOnlyList<MovedFile> Moved, IReadOnlyList<st
 
 public static class ImageOperations
 {
-    private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".webp", ".ico"
     };
+
+    private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp4", ".mov", ".m4v", ".mkv", ".avi", ".wmv", ".webm", ".mpeg", ".mpg", ".3gp", ".mts", ".m2ts"
+    };
+
+    public static bool IsVideo(string path) => VideoExtensions.Contains(Path.GetExtension(path));
+
+    private static bool IsSupportedExtension(string extension) =>
+        ImageExtensions.Contains(extension) || VideoExtensions.Contains(extension);
 
     private static readonly StringComparer PathComparer = StringComparer.OrdinalIgnoreCase;
 
@@ -63,7 +73,7 @@ public static class ImageOperations
                         else
                         {
                             filesExamined++;
-                            if (Extensions.Contains(Path.GetExtension(entry)))
+                            if (IsSupportedExtension(Path.GetExtension(entry)))
                                 images.Add(Path.GetFullPath(entry));
                         }
                     }
@@ -142,7 +152,7 @@ public static class ImageOperations
         var directories = new List<string> { destination };
         foreach (var directory in Directory.EnumerateDirectories(destination))
         {
-            if (!Extensions.Contains("." + Path.GetFileName(directory)))
+            if (!IsSupportedExtension("." + Path.GetFileName(directory)))
                 continue;
             if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
                 throw new IOException($"A pasta de tipo não pode ser um link ou ponto de junção: {directory}");
@@ -251,8 +261,8 @@ public static class ImageOperations
     private static string GetTypeFolder(string destination, string path)
     {
         var extension = Path.GetExtension(path);
-        if (!Extensions.Contains(extension))
-            throw new ArgumentException($"Tipo de imagem não suportado: {path}");
+        if (!IsSupportedExtension(extension))
+            throw new ArgumentException($"Tipo de arquivo não suportado: {path}");
         return Path.Combine(destination, extension[1..].ToUpperInvariant());
     }
 
