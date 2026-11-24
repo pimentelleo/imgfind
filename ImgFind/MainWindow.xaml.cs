@@ -311,7 +311,7 @@ public partial class MainWindow : Window
                 excludeDuplicates = dialog.ExcludeDuplicates;
             }
             else if (!ShowNotice("Tudo pronto para mover",
-                         $"Nenhuma duplicata foi encontrada. Mover {paths.Length} {(paths.Length == 1 ? "imagem" : "imagens")} para:\n\n{destination}?",
+                         $"Nenhuma duplicata foi encontrada. Mover {paths.Length} {(paths.Length == 1 ? "imagem" : "imagens")} para subpastas por extensão em:\n\n{destination}?",
                          confirm: true))
             {
                 Status.Text = "Movimentação cancelada; nenhum arquivo foi movido.";

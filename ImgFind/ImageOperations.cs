@@ -115,6 +115,8 @@ public static class ImageOperations
             throw new DirectoryNotFoundException($"A pasta de destino não existe: {destination}");
 
         var sourcePathsList = paths.Select(Path.GetFullPath).Distinct(PathComparer).ToList();
+        foreach (var path in sourcePathsList)
+            _ = GetTypeFolder(destination, path);
         var sourcePaths = sourcePathsList.ToHashSet(PathComparer);
         var clock = Stopwatch.StartNew();
         void Report(PrepareProgress progress, bool force = false)
@@ -137,16 +139,29 @@ public static class ImageOperations
         var candidates = new List<string>();
         var examined = 0;
         Report(new PrepareProgress("listar destino", destination, 0, null), true);
-        foreach (var path in Directory.EnumerateFiles(destination))
+        var directories = new List<string> { destination };
+        foreach (var directory in Directory.EnumerateDirectories(destination))
         {
-            examined++;
-            var fullPath = Path.GetFullPath(path);
-            if (sourcePaths.Contains(fullPath))
+            if (!Extensions.Contains("." + Path.GetFileName(directory)))
                 continue;
-            var info = new FileInfo(fullPath);
-            if ((info.Attributes & FileAttributes.ReparsePoint) == 0 && sizes.Contains(info.Length))
-                candidates.Add(fullPath);
-            Report(new PrepareProgress("listar destino", fullPath, examined, null));
+            if ((File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0)
+                throw new IOException($"A pasta de tipo não pode ser um link ou ponto de junção: {directory}");
+            directories.Add(directory);
+        }
+        foreach (var directory in directories)
+        {
+            foreach (var path in Directory.EnumerateFiles(directory))
+            {
+                examined++;
+                var fullPath = Path.GetFullPath(path);
+                if (!sourcePaths.Contains(fullPath))
+                {
+                    var info = new FileInfo(fullPath);
+                    if ((info.Attributes & FileAttributes.ReparsePoint) == 0 && sizes.Contains(info.Length))
+                        candidates.Add(fullPath);
+                }
+                Report(new PrepareProgress("listar destino", fullPath, examined, null));
+            }
         }
 
         var existing = new List<FileFingerprint>(candidates.Count);
@@ -181,7 +196,7 @@ public static class ImageOperations
             {
                 // A file already in the destination is the retained copy.
                 var retainedAtDestination = group.ExistingFiles.Count > 0 ||
-                    group.Sources.Any(x => IsInDestination(x, plan.Destination));
+                    group.Sources.Any(x => IsInTypeFolder(x, plan.Destination));
                 foreach (var path in group.Sources.Skip(retainedAtDestination ? 0 : 1))
                     excluded.Add(path);
             }
@@ -189,7 +204,7 @@ public static class ImageOperations
 
         foreach (var source in plan.Sources)
         {
-            if (excluded.Contains(source.Path) || IsInDestination(source.Path, plan.Destination))
+            if (excluded.Contains(source.Path) || IsInTypeFolder(source.Path, plan.Destination))
             {
                 skipped.Add(source.Path);
                 continue;
@@ -202,10 +217,16 @@ public static class ImageOperations
 
                 var name = Path.GetFileNameWithoutExtension(source.Path);
                 var extension = Path.GetExtension(source.Path);
+                if (!Directory.Exists(plan.Destination))
+                    throw new DirectoryNotFoundException($"A pasta de destino não existe: {plan.Destination}");
+                var folder = GetTypeFolder(plan.Destination, source.Path);
+                Directory.CreateDirectory(folder);
+                if ((File.GetAttributes(folder) & FileAttributes.ReparsePoint) != 0)
+                    throw new IOException($"A pasta de tipo não pode ser um link ou ponto de junção: {folder}");
                 for (var suffix = 0; ; suffix++)
                 {
                     var fileName = suffix == 0 ? name + extension : $"{name} ({suffix}){extension}";
-                    var target = Path.Combine(plan.Destination, fileName);
+                    var target = Path.Combine(folder, fileName);
                     try
                     {
                         File.Move(source.Path, target, false);
@@ -227,7 +248,15 @@ public static class ImageOperations
         return new MoveResult(moved, skipped, errors);
     }
 
-    private static bool IsInDestination(string path, string destination) =>
+    private static string GetTypeFolder(string destination, string path)
+    {
+        var extension = Path.GetExtension(path);
+        if (!Extensions.Contains(extension))
+            throw new ArgumentException($"Tipo de imagem não suportado: {path}");
+        return Path.Combine(destination, extension[1..].ToUpperInvariant());
+    }
+
+    private static bool IsInTypeFolder(string path, string destination) =>
         PathComparer.Equals(Path.GetDirectoryName(Path.GetFullPath(path)),
-            Path.TrimEndingDirectorySeparator(Path.GetFullPath(destination)));
+            Path.TrimEndingDirectorySeparator(GetTypeFolder(destination, path)));
 }
