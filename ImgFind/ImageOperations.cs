@@ -1,5 +1,6 @@
 using System.IO;
 using System.Diagnostics;
+using System.Buffers;
 using System.Security.Cryptography;
 
 namespace ImgFind;
@@ -7,6 +8,8 @@ namespace ImgFind;
 public sealed record ScanResult(IReadOnlyList<string> Images, IReadOnlyList<string> Errors);
 public sealed record ScanProgress(string CurrentDirectory, int DirectoriesVisited, long FilesExamined,
     int ImagesFound, int Errors);
+public sealed record PrepareProgress(string Phase, string CurrentPath, int Completed, int? Total,
+    long BytesRead = 0, long CurrentSize = 0);
 public sealed record FileFingerprint(string Path, long Size, string Hash);
 public sealed record DuplicateGroup(IReadOnlyList<string> Sources, IReadOnlyList<string> ExistingFiles);
 public sealed record MovePlan(string Destination, IReadOnlyList<FileFingerprint> Sources,
@@ -82,40 +85,85 @@ public static class ImageOperations
         return new ScanResult(images, errors);
     }
 
-    private static FileFingerprint Fingerprint(string path)
+    private static FileFingerprint Fingerprint(string path, Action<long, long>? onRead = null)
     {
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
+            128 * 1024, FileOptions.SequentialScan);
         var size = stream.Length;
-        var hash = Convert.ToHexString(SHA256.HashData(stream));
+        using var algorithm = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = ArrayPool<byte>.Shared.Rent(128 * 1024);
+        try
+        {
+            long bytesRead = 0;
+            int read;
+            while ((read = stream.Read(buffer, 0, buffer.Length)) != 0)
+            {
+                algorithm.AppendData(buffer, 0, read);
+                bytesRead += read;
+                onRead?.Invoke(bytesRead, size);
+            }
+        }
+        finally { ArrayPool<byte>.Shared.Return(buffer); }
+        var hash = Convert.ToHexString(algorithm.GetHashAndReset());
         return new FileFingerprint(path, size, hash);
     }
 
-    public static MovePlan Prepare(IEnumerable<string> paths, string destination)
+    public static MovePlan Prepare(IEnumerable<string> paths, string destination, Action<PrepareProgress>? reportProgress = null)
     {
         destination = Path.GetFullPath(destination);
         if (!Directory.Exists(destination))
             throw new DirectoryNotFoundException($"A pasta de destino não existe: {destination}");
 
-        var sources = paths.Select(Path.GetFullPath).Distinct(PathComparer)
-            .Select(Fingerprint).ToList();
-        var sourcePaths = sources.Select(x => x.Path).ToHashSet(PathComparer);
+        var sourcePathsList = paths.Select(Path.GetFullPath).Distinct(PathComparer).ToList();
+        var sourcePaths = sourcePathsList.ToHashSet(PathComparer);
+        var clock = Stopwatch.StartNew();
+        void Report(PrepareProgress progress, bool force = false)
+        {
+            if (reportProgress == null || (!force && clock.ElapsedMilliseconds < 150)) return;
+            clock.Restart();
+            reportProgress(progress);
+        }
+
+        var sources = new List<FileFingerprint>(sourcePathsList.Count);
+        Report(new PrepareProgress("origem", "", 0, sourcePathsList.Count), true);
+        foreach (var path in sourcePathsList)
+        {
+            sources.Add(Fingerprint(path, (bytes, size) =>
+                Report(new PrepareProgress("origem", path, sources.Count, sourcePathsList.Count, bytes, size))));
+            Report(new PrepareProgress("origem", path, sources.Count, sourcePathsList.Count));
+        }
+        Report(new PrepareProgress("origem", "", sources.Count, sourcePathsList.Count), true);
         var sizes = sources.Select(x => x.Size).ToHashSet();
-        var existing = new List<FileFingerprint>();
+        var candidates = new List<string>();
+        var examined = 0;
+        Report(new PrepareProgress("listar destino", destination, 0, null), true);
         foreach (var path in Directory.EnumerateFiles(destination))
         {
+            examined++;
             var fullPath = Path.GetFullPath(path);
             if (sourcePaths.Contains(fullPath))
                 continue;
             var info = new FileInfo(fullPath);
             if ((info.Attributes & FileAttributes.ReparsePoint) == 0 && sizes.Contains(info.Length))
-                existing.Add(Fingerprint(fullPath));
+                candidates.Add(fullPath);
+            Report(new PrepareProgress("listar destino", fullPath, examined, null));
         }
 
+        var existing = new List<FileFingerprint>(candidates.Count);
+        Report(new PrepareProgress("destino", "", 0, candidates.Count), true);
+        foreach (var path in candidates)
+        {
+            existing.Add(Fingerprint(path, (bytes, size) =>
+                Report(new PrepareProgress("destino", path, existing.Count, candidates.Count, bytes, size))));
+            Report(new PrepareProgress("destino", path, existing.Count, candidates.Count));
+        }
+        Report(new PrepareProgress("destino", "", existing.Count, candidates.Count), true);
+        Report(new PrepareProgress("agrupar", "", 0, null), true);
+        var existingByContent = existing.ToLookup(x => (x.Size, x.Hash));
         var duplicates = sources.GroupBy(x => (x.Size, x.Hash))
             .Select(group => new DuplicateGroup(
                 group.Select(x => x.Path).ToList(),
-                existing.Where(x => x.Size == group.Key.Size && x.Hash == group.Key.Hash)
-                    .Select(x => x.Path).ToList()))
+                existingByContent[group.Key].Select(x => x.Path).ToList()))
             .Where(group => group.Sources.Count > 1 || group.ExistingFiles.Count > 0)
             .ToList();
         return new MovePlan(destination, sources, duplicates);

@@ -25,6 +25,8 @@ O executável estará em `ImgFind\bin\Release\net8.0-windows\win-x64\publish\Img
 3. Escolha uma pasta de destino existente e clique em **Mover selecionadas** ou **Mover todas**.
 4. Antes de mover, o aplicativo compara o conteúdo por SHA-256 e lista grupos de duplicatas entre os arquivos escolhidos e arquivos já presentes diretamente no destino. Escolha mover todas as cópias, deixar duplicatas fora da operação ou cancelar. Ao deixar duplicatas de fora, uma cópia selecionada é movida por grupo; se já houver cópia no destino, nenhuma cópia desse grupo é movida. Arquivos deixados de fora permanecem na origem, sem exclusão.
 
+Durante a conferência, o progresso e a porcentagem são relativos à etapa atual (origem ou candidatos no destino), não à operação inteira. Cada arquivo tem o mesmo peso e, durante sua leitura, conta-se a fração já lida; não é uma estimativa de tempo. A listagem do destino não tem total conhecido e usa uma barra indeterminada.
+
 Os arquivos são reunidos diretamente no destino, sem criar subpastas. Nomes em conflito recebem sufixos como `foto (1).jpg`, sem sobrescrever arquivos existentes. Arquivos selecionados que já estão diretamente no destino não são movidos. Alterações detectadas após a conferência e falhas individuais são apresentadas no relatório; os demais arquivos continuam sendo processados. Se a conferência não puder ser concluída, a operação é cancelada antes de qualquer movimentação. Verifique o relatório ao terminar.
 
 ## Testes

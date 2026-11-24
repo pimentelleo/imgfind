@@ -120,6 +120,8 @@ public partial class MainWindow : Window
         var root = SourcePath.Text;
         SetBusy(true, "Varrendo pastas...");
         ScanProgressPanel.Visibility = Visibility.Visible;
+        IndeterminateProgress.Visibility = Visibility.Visible;
+        DeterminateProgress.Visibility = Visibility.Collapsed;
         ScanProgressTitle.Text = "Varrendo pastas...";
         ScanProgressDetails.Text = "0 pastas iniciadas · 0 arquivos examinados · 0 imagens encontradas · 0 erros";
         ScanCurrentFolder.Text = root;
@@ -237,9 +239,57 @@ public partial class MainWindow : Window
         }
         var destination = DestinationPath.Text;
         SetBusy(true, "Conferindo conteúdo e duplicatas...");
+        ScanProgressPanel.Visibility = Visibility.Visible;
+        ScanProgressTitle.Text = "Conferindo imagens de origem...";
+        ScanProgressDetails.Text = $"0 de {paths.Length} arquivos · 0% desta etapa";
+        ScanCurrentFolder.Text = "Preparando...";
+        ScanElapsed.Text = "Tempo: 00:00";
+        IndeterminateProgress.Visibility = Visibility.Collapsed;
+        DeterminateProgress.Visibility = Visibility.Visible;
+        DeterminateProgress.Value = 0;
+        var clock = Stopwatch.StartNew();
+        PrepareProgress? latest = null;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+        timer.Tick += (_, _) =>
+        {
+            var elapsed = clock.Elapsed;
+            ScanElapsed.Text = $"Tempo: {(int)elapsed.TotalMinutes:00}:{elapsed.Seconds:00}";
+            var progress = Volatile.Read(ref latest);
+            if (progress == null) return;
+            ScanCurrentFolder.Text = string.IsNullOrEmpty(progress.CurrentPath) ? destination : progress.CurrentPath;
+            ScanProgressTitle.Text = progress.Phase switch
+            {
+                "origem" => "Conferindo imagens de origem...",
+                "listar destino" => "Examinando arquivos no destino...",
+                "destino" => "Conferindo possíveis duplicatas no destino...",
+                _ => "Agrupando duplicatas..."
+            };
+            if (progress.Total is int total)
+            {
+                var fraction = progress.CurrentSize > 0
+                    ? Math.Min(1.0, (double)progress.BytesRead / progress.CurrentSize) : 0;
+                var percent = total == 0 ? 100 : Math.Min(100, (progress.Completed + fraction) * 100 / total);
+                if (progress.Completed < total) percent = Math.Min(99.9, percent);
+                ScanProgressDetails.Text = $"{progress.Completed} de {total} arquivos concluídos · {percent:F1}% desta etapa";
+                DeterminateProgress.Value = percent;
+                DeterminateProgress.Visibility = Visibility.Visible;
+                IndeterminateProgress.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                ScanProgressDetails.Text = progress.Phase == "listar destino"
+                    ? $"{progress.Completed} arquivos examinados · total ainda desconhecido"
+                    : "Comparando conteúdos identificados...";
+                IndeterminateProgress.Visibility = Visibility.Visible;
+                DeterminateProgress.Visibility = Visibility.Collapsed;
+            }
+        };
+        timer.Start();
         try
         {
-            var plan = await Task.Run(() => ImageOperations.Prepare(paths, destination));
+            var plan = await Task.Run(() => ImageOperations.Prepare(paths, destination, progress => Volatile.Write(ref latest, progress)));
+            timer.Stop();
+            ScanProgressPanel.Visibility = Visibility.Collapsed;
             bool excludeDuplicates = false;
             if (plan.Duplicates.Count > 0)
             {
@@ -276,7 +326,12 @@ public partial class MainWindow : Window
             Status.Text = "A conferência falhou; nenhum arquivo foi movido.";
             ShowNotice("Não foi possível continuar", $"{Status.Text}\n\n{ex.Message}", error: true);
         }
-        finally { SetBusy(false); }
+        finally
+        {
+            timer.Stop();
+            ScanProgressPanel.Visibility = Visibility.Collapsed;
+            SetBusy(false);
+        }
     }
 
     private void SetBusy(bool value, string? message = null)

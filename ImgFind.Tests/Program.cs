@@ -8,12 +8,63 @@ try
     TestExcludeDuplicates();
     TestKeepDuplicatesAndRename();
     TestExistingDestinationDuplicate();
+    TestPrepareProgress();
+    TestPrepareProgressWithinFile();
     TestChangedOrMissingSource();
     Console.WriteLine("Todos os testes passaram.");
 }
 finally
 {
     Directory.Delete(root, true);
+}
+
+void TestPrepareProgressWithinFile()
+{
+    var (source, destination) = CreateCase("progress-large");
+    var path = Path.Combine(source, "big.png");
+    File.WriteAllBytes(path, new byte[512 * 1024]);
+    var updates = new List<PrepareProgress>();
+    var plan = ImageOperations.Prepare(new[] { path }, destination, progress =>
+    {
+        updates.Add(progress);
+        if (progress.Phase == "origem" && progress.Completed == 0 && progress.CurrentPath == "")
+            Thread.Sleep(160);
+    });
+    Check(updates.Any(x => x.Phase == "origem" && x.Completed == 0 &&
+                           x.BytesRead > 0 && x.CurrentSize == 512 * 1024),
+          "Progresso dentro de um arquivo grande não foi informado.");
+    Check(plan.Sources.Count == 1 && plan.Duplicates.Count == 0, "Arquivo único foi identificado como duplicata.");
+}
+
+void TestPrepareProgress()
+{
+    var (source, destination) = CreateCase("progress");
+    var a = Path.Combine(source, "a.jpg");
+    var b = Path.Combine(source, "b.png");
+    File.WriteAllText(a, "identical");
+    File.WriteAllText(b, "different");
+    File.WriteAllText(Path.Combine(destination, "duplicate.txt"), "identical");
+    File.WriteAllText(Path.Combine(destination, "other.txt"), "another size");
+    var updates = new List<PrepareProgress>();
+    var plan = ImageOperations.Prepare(new[] { a, b }, destination, updates.Add);
+    Check(updates.Any(x => x.Phase == "origem" && x.Completed == 0 && x.Total == 2) &&
+          updates.Any(x => x.Phase == "origem" && x.Completed == 2 && x.Total == 2),
+          "Progresso da origem incorreto.");
+    Check(updates.Any(x => x.Phase == "listar destino" && x.Total == null) &&
+          updates.Any(x => x.Phase == "destino" && x.Completed == 1 && x.Total == 1) &&
+          updates.Any(x => x.Phase == "agrupar" && x.Total == null),
+          "Fases de progresso do destino incorretas.");
+    Check(plan.Duplicates.Count == 1 && plan.Duplicates[0].Sources.Single() == a &&
+          plan.Duplicates[0].ExistingFiles.Count == 1, "Agrupamento por conteúdo incorreto.");
+    File.Delete(b);
+    try
+    {
+        ImageOperations.Prepare(new[] { a, b }, destination, updates.Add);
+        throw new Exception("A conferência deveria falhar para um arquivo ausente.");
+    }
+    catch (FileNotFoundException) { }
+    Check(File.Exists(a) && File.Exists(Path.Combine(destination, "duplicate.txt")),
+          "A falha da conferência alterou arquivos.");
 }
 
 void Check(bool condition, string message)
@@ -101,9 +152,9 @@ void TestChangedOrMissingSource()
     File.WriteAllText(a, "before");
     File.WriteAllText(b, "missing");
     var plan = ImageOperations.Prepare(new[] { a, b }, destination);
-    File.WriteAllText(a, "after");
+    File.WriteAllText(a, "AFTER!");
     File.Delete(b);
     var result = ImageOperations.Move(plan, false);
-    Check(result.Errors.Count == 2 && result.Moved.Count == 0 && File.ReadAllText(a) == "after",
+    Check(result.Errors.Count == 2 && result.Moved.Count == 0 && File.ReadAllText(a) == "AFTER!",
         "Erros ou alteração após conferência não foram tratados.");
 }
